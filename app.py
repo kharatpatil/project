@@ -16,13 +16,34 @@ from prophet.plot import plot_cross_validation_metric
 
 
 # Function to fetch historical stock data
+@st.cache_data(ttl=3600)  # cache expires in 1 hour
 def fetch_stock_data(symbol, start_date, end_date):
     try:
-        stock_data = yf.download(symbol, start=start_date, end=end_date, auto_adjust=False)
+        stock_data = yf.download(symbol, start=start_date, end=end_date, auto_adjust=True)
         return stock_data
     except Exception as e:
         st.error(f"Error fetching data: {e}")
         return pd.DataFrame()
+
+# Function to fetch and display company information
+@st.cache_data(show_spinner=False)
+def display_company_info(symbol):
+    try:
+        ticker = yf.Ticker(symbol)
+        info = ticker.info
+
+        st.subheader("📊 Company Information")
+        st.markdown(f"**Name:** {info.get('longName', 'N/A')}")
+        st.markdown(f"**Sector:** {info.get('sector', 'N/A')}")
+        st.markdown(f"**Industry:** {info.get('industry', 'N/A')}")
+        st.markdown(f"**Market Cap:** {info.get('marketCap', 'N/A'):,}")
+        st.markdown(f"**Country:** {info.get('country', 'N/A')}")
+        st.markdown(f"**Exchange:** {info.get('exchange', 'N/A')}")
+        st.markdown(f"**Website:** [{info.get('website', 'N/A')}]({info.get('website', '#')})")
+        st.markdown(f"**Summary:** {info.get('longBusinessSummary', 'N/A')}")
+        
+    except Exception as e:
+        st.error(f"Error fetching company info: {e}")
 
 # Function to preprocess data and split into features and target
 def preprocess_data(stock_data):
@@ -70,6 +91,14 @@ def generate_recommendations(predicted_price, current_price):
 
     return recommendation, price_before, price_after, profit
 
+def prophet_forecast(df):
+    df = df.reset_index()[['Date', 'Close']]
+    df.columns = ['ds', 'y']
+    m = Prophet(daily_seasonality=True)
+    m.fit(df)
+    future = m.make_future_dataframe(periods=30)
+    forecast = m.predict(future)
+    return m, forecast
 
 # Streamlit app
 def main():
@@ -77,7 +106,7 @@ def main():
     st.sidebar.header('Stock Price Prediction')
 
     # Company selection
-    symbol = st.selectbox('Select Company', ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'FB', 'AMZN', 'BTC-USD', 'ETH-USD','IBM','NESN.SW','SONY','SMSN.IL','HP','KO','TATAMOTORS.NS','WIPRO.NS','INFY','DELL','NOK'])
+    symbol = st.selectbox('Select Company', ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'FB', 'AMZN', 'BTC-USD', 'ETH-USD', 'IBM', 'NESN.SW', 'SONY', 'SMSN.IL', 'HP', 'KO', 'TATAMOTORS.NS', 'WIPRO.NS', 'INFY', 'DELL', 'NOK', 'NVDA', 'BRK-B', 'JPM', 'V', 'MA', 'UNH', 'HD', 'PG', 'DIS', 'PFE', 'MRK', 'XOM', 'CVX', 'BAC', 'WMT', 'COST', 'BA', 'CAT', 'ORCL', 'CRM', 'T', 'VZ', 'GS', 'GE', 'MCD', 'SBUX', 'NKE', 'MDT', 'TXN', 'LLY', 'BMY', 'ABT', 'AMAT', 'QCOM', 'ADP', 'INTU', 'ZM', 'PYPL', 'F', 'GM', 'RIVN', 'LCID', 'SNAP', 'UBER', 'LYFT', 'PANW', 'SNOW', 'PLTR', 'DOCU', 'NET', 'SQ', 'SHOP', 'TWLO', 'CRWD', 'ROKU', 'DASH', 'ABNB', 'COIN', 'TSM', 'ASML', 'BABA', 'JD', 'NIO', 'BIDU', 'PDD', 'MELI', 'SE', 'HDB', 'RELIANCE.NS', 'ITC.NS', 'HCLTECH.NS', 'BAJAJFINSV.NS', 'ICICIBANK.NS', 'SBIN.NS', 'AXISBANK.NS', 'BHARTIARTL.NS', 'ADANIENT.NS', 'HINDUNILVR.NS', 'MARUTI.NS', 'ULVR.L', 'BP.L', 'SHEL', 'RIO', 'BHP', 'LMT', 'NOC', 'RTX', 'HON', 'DE', 'CSCO', 'MU', 'WBA', 'KDP', 'STZ', 'MO', 'ADM', 'GIS', 'KR', 'AFL', 'ADBE', 'SAP', 'TEAM', 'WDAY', 'ZS', 'TTD', 'MDB', 'DDOG', 'OKTA', 'FSLY', 'ESTC', 'CHWY', 'BB', 'BID', 'WIX', 'ETSY', 'NTDOY', 'MTCH', 'SPOT', 'RBLX', 'U', 'ADSK', 'NOW', 'HUBS', 'ZI', 'PARA', 'VIAC', 'LEN', 'DHI', 'PHM', 'NVR', 'TOL', 'EXPE', 'BKNG', 'HLT', 'MAR', 'LUV', 'DAL', 'UAL', 'AAL', 'CZR', 'MGM','LT.NS', 'HDFCBANK.NS', 'HDFC.NS', 'ASIANPAINT.NS', 'BAJAJ-AUTO.NS', 'BAJAJFINSV.NS', 'BAJFINANCE.NS', 'TITAN.NS','RELIANCE.NS', 'ITC.NS', 'INFY.NS', 'TCS.NS', 'TECHM.NS', 'HCLTECH.NS', 'WIPRO.NS', 'ICICIBANK.NS', 'SBIN.NS','AXISBANK.NS', 'KOTAKBANK.NS', 'POWERGRID.NS', 'ONGC.NS', 'NTPC.NS', 'COALINDIA.NS', 'ADANIENT.NS', 'ADANIGREEN.NS','ADANIPORTS.NS', 'ADANIPOWER.NS', 'ADANITRANS.NS', 'HINDUNILVR.NS', 'ULTRACEMCO.NS', 'GRASIM.NS', 'MARUTI.NS','MM.NS', 'TATACONSUM.NS', 'TATASTEEL.NS', 'TATAPOWER.NS', 'TATACHEM.NS', 'TATAELXSI.NS', 'JSWSTEEL.NS', 'BPCL.NS','IOC.NS', 'HINDALCO.NS', 'VEDL.NS', 'BRITANNIA.NS', 'DABUR.NS', 'NESTLEIND.NS', 'GAIL.NS', 'DRREDDY.NS', 'SUNPHARMA.NS','CIPLA.NS', 'LUPIN.NS', 'DIVISLAB.NS', 'BIOCON.NS','500325.BO', '500570.BO', '500180.BO', '532174.BO', '500209.BO', '500875.BO','500182.BO', '500696.BO', '500312.BO', '532540.BO', '500124.BO', '532215.BO','532155.BO', '500403.BO', '500087.BO', '500480.BO', '532281.BO', '532648.BO','500112.BO', '500010.BO', '500547.BO', '532977.BO'])
 
     # Year selection using a slider
     current_year = datetime.now().year
@@ -87,6 +116,9 @@ def main():
     start_date = datetime(year, 1, 1)
     end_date = datetime(year, 12, 31)
     stock_data = fetch_stock_data(symbol, start_date, end_date)
+
+    #display company info
+    display_company_info(symbol)
 
     # Check if stock data is empty
     if stock_data.empty:
@@ -153,6 +185,9 @@ def main():
     fig = go.Figure(data=[trace_actual, trace_predicted], layout=layout)
     st.plotly_chart(fig)
 
+    st.subheader("📈 Prophet Forecast (30 Days Ahead)")
+    model_prophet, forecast = prophet_forecast(stock_data)
+    fig_prophet = plot_plotly(model_prophet, forecast)
+    st.plotly_chart(fig_prophet)
+
 main()
-
-
