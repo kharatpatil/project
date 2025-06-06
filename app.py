@@ -17,7 +17,7 @@ from prophet.plot import plot_cross_validation_metric
 
 
 # Function to fetch historical stock data
-@st.cache_data(ttl=3600)  # cache expires in 1 hour
+#@st.cache_data(ttl=3600)  # cache expires in 1 hour
 def fetch_stock_data(symbol, start_date, end_date):
     try:
         stock_data = yf.download(symbol, start=start_date, end=end_date, auto_adjust=True)
@@ -27,7 +27,7 @@ def fetch_stock_data(symbol, start_date, end_date):
         return pd.DataFrame()
 
 # Function to fetch and display company information
-@st.cache_data(show_spinner=False)
+#@st.cache_data(show_spinner=False)
 def display_company_info(symbol):
     ticker = yf.Ticker(symbol)
     info = ticker.info
