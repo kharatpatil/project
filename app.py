@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from datetime import datetime, timedelta ,date
 import plotly.graph_objs as go
+import matplotlib.pyplot as plt
 import time
 from prophet import Prophet 
 from prophet.plot import plot_plotly
@@ -28,22 +29,28 @@ def fetch_stock_data(symbol, start_date, end_date):
 # Function to fetch and display company information
 @st.cache_data(show_spinner=False)
 def display_company_info(symbol):
-    try:
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
+    ticker = yf.Ticker(symbol)
+    info = ticker.info
+    st.markdown(f"**Name:** {info.get('longName', 'N/A')}")
+    st.sidebar.write(f"**Name:** {info.get('longName', 'N/A')}")
 
-        st.subheader("📊 Company Information")
-        st.markdown(f"**Name:** {info.get('longName', 'N/A')}")
-        st.markdown(f"**Sector:** {info.get('sector', 'N/A')}")
-        st.markdown(f"**Industry:** {info.get('industry', 'N/A')}")
-        st.markdown(f"**Market Cap:** {info.get('marketCap', 'N/A'):,}")
-        st.markdown(f"**Country:** {info.get('country', 'N/A')}")
-        st.markdown(f"**Exchange:** {info.get('exchange', 'N/A')}")
-        st.markdown(f"**Website:** [{info.get('website', 'N/A')}]({info.get('website', '#')})")
-        st.markdown(f"**Summary:** {info.get('longBusinessSummary', 'N/A')}")
-        
-    except Exception as e:
-        st.error(f"Error fetching company info: {e}")
+    with st.expander("📊 Company Information"):
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+
+            st.subheader("📊 Company Information")
+            st.markdown(f"**Name:** {info.get('longName', 'N/A')}")
+            st.markdown(f"**Sector:** {info.get('sector', 'N/A')}")
+            st.markdown(f"**Industry:** {info.get('industry', 'N/A')}")
+            st.markdown(f"**Market Cap:** {info.get('marketCap', 'N/A'):,}")
+            st.markdown(f"**Country:** {info.get('country', 'N/A')}")
+            st.markdown(f"**Exchange:** {info.get('exchange', 'N/A')}")
+            st.markdown(f"**Website:** [{info.get('website', 'N/A')}]({info.get('website', '#')})")
+            st.markdown(f"**Summary:** {info.get('longBusinessSummary', 'N/A')}")
+            
+        except Exception as e:
+            st.error(f"Error fetching company info: {e}")
 
 # Function to preprocess data and split into features and target
 def preprocess_data(stock_data):
@@ -162,32 +169,97 @@ def main():
     # Generate recommendations
     current_price = stock_data['Close'].iloc[-1]
     recommendation, price_before, price_after, profit = generate_recommendations(predicted_price1[0], current_price)
+    # Calculate days required to get profit after prediction
+    if profit > 0:
+        st.sidebar.write("Forecasting 1 day ahead")
+        days_to_profit = (stock_data.index[-1] - stock_data.index[-2]).days
+        st.sidebar.write(f"Days required to get profit after prediction: {days_to_profit}")
     st.sidebar.write(f"Recommendation: {recommendation}")
     st.sidebar.write(f"Price before action: {price_before}")
     st.sidebar.write(f"Price after action: {price_after}")
     st.sidebar.write(f"Profit: {profit}")
 
-    # Calculate days required to get profit after prediction
-    if profit > 0:
-        days_to_profit = (stock_data.index[-1] - stock_data.index[-2]).days
-        st.sidebar.write(f"Days required to get profit after prediction: {days_to_profit}")
-
     # Plotting actual and predicted closing prices
-    st.write("Stock Data Tail:", stock_data['Close'].tail(5))  
-    st.write("Predicted Price:", predicted_price1[0]) 
+    with st.expander("📈 Stock Data Overview"):
+        st.write("Stock Data Head Of Selected Year:", stock_data.head(5))
+        st.write("Stock Data Tail Of Selected Year:", stock_data.tail(5))
+
+    # Display Price 
+    st.write("Predicted Price:", predicted_price1[0])
+
+    # select days for display 
     num_days = st.slider('Number of Days to Display', min_value=1, max_value=len(stock_data), value=30)
-    trace_actual = go.Scatter(x=stock_data.index[-num_days:], y=stock_data['Close'].tail(num_days), mode='lines', name='Actual Closing Price', line=dict(color='blue'))
-    trace_predicted = go.Scatter(x=[stock_data.index[-1], stock_data.index[-1] + timedelta(days=1)], y=[stock_data['Close'].iloc[-1], predicted_price1[0]], mode='markers+lines', name='Predicted Closing Price', marker=dict(color='red'))
+    
+   # Extract the correct closing price series
+    try:
+        if isinstance(stock_data['Close'], pd.DataFrame):
+            close_series = stock_data['Close'][symbol]
+        else:
+            close_series = stock_data['Close']
+    except Exception as e:
+        st.error(f"Error extracting closing prices: {e}")
+        st.stop()
+
+    # Ensure index is aligned to the Series
+    try:
+        x_vals = close_series.tail(num_days).index.tolist()
+        y_vals = close_series.tail(num_days).tolist()
+        # Get the last actual closing price
+        actual_last_price = close_series.iloc[-1]
+    except Exception as e:
+        st.error(f"Error preparing plot data: {e}")
+        st.stop()
+
+    # Plot
+    trace_actual = go.Scatter(
+        x=close_series.tail(num_days).index,
+        y=close_series.tail(num_days),
+        #x=stock_data.index[-num_days:],  # Already a DatetimeIndex
+        #y=close_series.tail(num_days).tolist(),
+        mode='lines+markers',
+        name='Actual Closing Price',
+        line=dict(color='blue'),
+        hovertemplate='%{x|%Y-%m-%d}<br>Price: $%{y:.2f}<extra></extra>'
+    )
+
+    trace_predicted = go.Scatter(
+        x=[stock_data.index[-1], stock_data.index[-1] + timedelta(days=1)],
+        y=[actual_last_price, predicted_price1[0]],
+        mode='markers+lines',
+        name='Predicted Closing Price',
+        marker=dict(color='red')
+    )
+
     # Add current time to the graph
     current_time = datetime.now().strftime('%H:%M:%S')
-    layout = go.Layout(title='Stock Price Prediction', xaxis=dict(title='Date'), yaxis=dict(title='Closing Price'), legend=dict(x=0, y=1), annotations=[dict(x=stock_data.index[-1], y=stock_data['Close'].iloc[-1], xref='x', yref='y', text=f'Current Time: {current_time}', showarrow=True, arrowhead=7, ax=0, ay=-40)])
+    layout = go.Layout(
+        title='📉 Stock Price Prediction',
+        xaxis=dict(title='Date', rangeslider=dict(visible=True), type='date'),  # ⬅️ Add range slider
+        yaxis=dict(title='Closing Price'),
+        legend=dict(x=0, y=1),
+        hovermode='x unified',  # ⬅️ Hover across all series for the same x
+        annotations=[dict(
+            x=stock_data.index[-1],
+            y=stock_data['Close'].iloc[-1],
+            xref='x',
+            yref='y',
+            text=f'Current Time: {current_time}',
+            showarrow=True,
+            arrowhead=7,
+            ax=0,
+            ay=-40
+        )]
+    )
+
 
     fig = go.Figure(data=[trace_actual, trace_predicted], layout=layout)
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
+
 
     st.subheader("📈 Prophet Forecast (30 Days Ahead)")
     model_prophet, forecast = prophet_forecast(stock_data)
     fig_prophet = plot_plotly(model_prophet, forecast)
     st.plotly_chart(fig_prophet)
+
 
 main()
