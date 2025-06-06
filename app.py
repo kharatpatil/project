@@ -238,19 +238,40 @@ def main():
         yaxis=dict(title='Closing Price'),
         legend=dict(x=0, y=1),
         hovermode='x unified',  # ⬅️ Hover across all series for the same x
-        annotations=[dict(
-            x=stock_data.index[-1],
-            y=stock_data['Close'].iloc[-1],
-            xref='x',
-            yref='y',
-            text=f'Current Time: {current_time}',
-            showarrow=True,
-            arrowhead=7,
-            ax=0,
-            ay=-40
-        )]
-    )
+        annotations=[
+                    dict(
+                        x=stock_data.index[-1],
+                        y=float(stock_data["Close"].iloc[-1]),
+                        xref='x',
+                        yref='y',
+                        text=f'Last Actual Price: ${float(stock_data["Close"].iloc[-1]):.2f}',
+                        showarrow=True,
+                        arrowhead=7,
+                        ax=0,
+                        ay=-20,
+                        xanchor='left',
+                        yanchor='bottom',
+                        bgcolor='white',
+                        font=dict(color='black')
+                    ),
+                    dict(
+                        x=stock_data.index[-1] + timedelta(days=1),
+                        y=float(predicted_price1[0]),
+                        xref='x',
+                        yref='y',
+                        text=f'Predicted Price: ${float(predicted_price1[0]):.2f}',
+                        showarrow=True,
+                        arrowhead=7,
+                        ax=0,
+                        ay=-20,
+                        xanchor='left',
+                        yanchor='bottom',
+                        bgcolor='lightyellow',
+                        font=dict(color='red')
+                    )
+                ]
 
+    )
 
     fig = go.Figure(data=[trace_actual, trace_predicted], layout=layout)
     st.plotly_chart(fig, use_container_width=True)
