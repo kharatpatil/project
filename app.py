@@ -15,6 +15,10 @@ from prophet.diagnostics import cross_validation
 from prophet.diagnostics import performance_metrics
 from prophet.plot import plot_cross_validation_metric
 
+st.markdown(
+    '<meta name="google-site-verification" content="google-site-verification: googlec78462693c335187.html" />',
+    unsafe_allow_html=True
+)
 
 # Function to fetch historical stock data
 #@st.cache_data(ttl=3600)  # cache expires in 1 hour
