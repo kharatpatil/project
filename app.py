@@ -16,7 +16,7 @@ from prophet.diagnostics import performance_metrics
 from prophet.plot import plot_cross_validation_metric
 
 st.markdown(
-    '<meta name="google-site-verification" content="google-site-verification: googlec78462693c335187.html" />',
+    '<meta name="google-site-verification" content="googlec78462693c335187.html" />',
     unsafe_allow_html=True
 )
 
